@@ -1,18 +1,53 @@
-name: Docker Image CI
+name: Deploy Portfolio
 
 on:
+  workflow_dispatch:  # Allows manual execution from GitHub Actions
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: [ main ]  # Added automatic trigger on main branch pushes
+
+env:
+  DOCKER_USERNAME: sharanu67
+  DOCKER_IMAGE: sharanu67/portfolio
+  CONTAINER_NAME: portfolio-container
 
 jobs:
-
-  build:
-
+  build-and-push:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      - 
+        name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - 
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - 
+        name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      
+      - 
+        name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:latest
+            ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
+      
+      - 
+        name: Workflow Summary
+        run: |
+          echo "✅ Build completed"
+          echo "🐳 Docker image built and pushed successfully"
+          echo "📌 Image tags:"
+          echo "   - ${{ env.DOCKER_IMAGE }}:latest"
+          echo "   - ${{ env.DOCKER_IMAGE }}:${{ github.sha }}"
